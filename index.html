@@ -829,10 +829,8 @@ function drawChart(prices, result, depStr, socStart, km){
   const depMin2=dh2*60+dm2;
   const slotH=prices.length>1?(prices[1].start_timestamp-prices[0].start_timestamp)/3600000:1;
 
-  // ── Background slot coloring ──
+  // ── Background slot coloring — alle Slots, gesamter Tag ──
   prices.forEach((p,i)=>{
-    const d=new Date(p.start_timestamp), sm=d.getHours()*60+d.getMinutes();
-    if(sm>=depMin2) return;
     const color=mustSet.has(i)?'rgba(63,185,80,0.14)':bonusSet.has(i)?'rgba(88,166,255,0.11)':null;
     if(!color) return;
     const el=document.createElementNS('http://www.w3.org/2000/svg','rect');
@@ -872,10 +870,9 @@ function drawChart(prices, result, depStr, socStart, km){
   let soc=socStart;
   prices.forEach((p,i)=>{
     const d=new Date(p.start_timestamp), sm=d.getHours()*60+d.getMinutes();
-    // Before departure: charging possible
     if(sm<depMin2){
+      // Vor Abfahrt: Laden wenn Pflicht- oder Bonus-Slot
       if(mustSet.has(i)||bonusSet.has(i)){
-        // Charging: add kWh for this slot → ΔSoC
         const kwhThisSlot=pw*slotH;
         const deltaSoc=(kwhThisSlot/BAT)*100;
         const socEnd=Math.min(soc+deltaSoc, C.maxSoc);
@@ -884,6 +881,14 @@ function drawChart(prices, result, depStr, socStart, km){
         soc=socEnd;
         return;
       }
+    } else if(sm===depMin2){
+      // Abfahrt: SoC fällt um Fahrtverbrauch
+      const tripKwh=getKm()*C.con/100;
+      const socAfter=Math.max(0, soc-(tripKwh/BAT)*100);
+      socPoints.push({x:xS(i), ys:ySoc(soc)});
+      socPoints.push({x:xS(Math.min(i+1,prices.length-1)), ys:ySoc(socAfter)});
+      soc=socAfter;
+      return;
     }
     socPoints.push({x:xS(i), ys:ySoc(soc)});
   });
@@ -926,8 +931,12 @@ function drawChart(prices, result, depStr, socStart, km){
     }
   }
 
-  // ── Departure line ──
-  const dx=pL+((dh2*60+dm2)/1440)*pW;
+  // ── Departure line — position by slot index ──
+  const depSlotIdx=prices.findIndex(p=>{
+    const d=new Date(p.start_timestamp);
+    return d.getHours()*60+d.getMinutes()>=depMin2;
+  });
+  const dx=depSlotIdx>=0?xS(depSlotIdx):pL+((dh2*60+dm2)/1440)*pW;
   const dl=document.createElementNS('http://www.w3.org/2000/svg','line');
   dl.setAttribute('x1',dx);dl.setAttribute('x2',dx);dl.setAttribute('y1',pT);dl.setAttribute('y2',pT+pH);
   dl.setAttribute('stroke','rgba(255,255,255,0.25)');dl.setAttribute('stroke-width','1');dl.setAttribute('stroke-dasharray','4 3');
@@ -937,12 +946,17 @@ function drawChart(prices, result, depStr, socStart, km){
   dt.setAttribute('fill','#8b949e'); dt.setAttribute('font-size','9');
   dt.textContent='Abfahrt'; svg.appendChild(dt);
 
-  // ── X axis labels ──
-  for(let h=0;h<=24;h+=6){
+  // ── X axis labels — aus echten Preis-Timestamps ──
+  const startH=new Date(prices[0].start_timestamp).getHours();
+  const totalH=prices.length*slotH;
+  const stepH=totalH<=12?2:totalH<=24?4:6;
+  for(let h=0;h<=totalH;h+=stepH){
+    const x=pL+(h/totalH)*pW;
+    const labelH=((startH+h)%24);
     const el=document.createElementNS('http://www.w3.org/2000/svg','text');
-    el.setAttribute('x',pL+(h/24)*pW); el.setAttribute('y',H-5);
+    el.setAttribute('x',x); el.setAttribute('y',H-5);
     el.setAttribute('text-anchor','middle'); el.setAttribute('fill','#8b949e'); el.setAttribute('font-size','9');
-    el.textContent=h.toString().padStart(2,'0')+':00'; svg.appendChild(el);
+    el.textContent=labelH.toString().padStart(2,'0')+':00'; svg.appendChild(el);
   }
 
   // ── Left Y axis — ct/kWh ──
