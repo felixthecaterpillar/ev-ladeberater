@@ -840,7 +840,7 @@ function getActiveLimits(km, totalMaxKwh){
 
 // ── Optimization engine ──────────────────────────────────
 function optimizeCharging(prices, mustKwh, bonusKwh, depStr, km){
-  if(!prices.length) return {slots:[], totalKwh:0, totalCost:0, mustSlots:[], bonusSlots:[], ctPerKwhThreshold:99};
+  if(!prices.length) return {slots:[], totalKwh:0, totalCost:0, mustKwh:0, bonusKwh:0, mustCost:0, bonusCost:0, mustSlots:[], bonusSlots:[], ctPerKwhThreshold:99};
 
   const [dh,dm]=depStr.split(':').map(Number);
   const depMin=dh*60+dm;
@@ -866,7 +866,7 @@ function optimizeCharging(prices, mustKwh, bonusKwh, depStr, km){
     };
   }).filter(s=>s.beforeDep);
 
-  if(!slots.length) return{slots:[],totalKwh:0,totalCost:0,mustSlots:[],bonusSlots:[],ctPerKwhThreshold:99};
+  if(!slots.length) return{slots:[],totalKwh:0,totalCost:0,mustKwh:0,bonusKwh:0,mustCost:0,bonusCost:0,mustSlots:[],bonusSlots:[],ctPerKwhThreshold:99};
 
   const sorted=[...slots].sort((a,b)=>a.fullPrice-b.fullPrice);
 
