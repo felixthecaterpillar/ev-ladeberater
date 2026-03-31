@@ -674,7 +674,7 @@ function updatePreview(){
   }
 
   const absVal=+document.getElementById('ct-abs').value||3;
-  const relVal=+document.getElementById('ct-rel').value||3.5;
+  const relVal=+document.getElementById('ct-rel').value||6.0;
   const limitLabel=limitMode==='abs'
     ?`€${absVal.toFixed(2)} Gesamtkosten`
     :`€${relVal.toFixed(2)}/100km`;
@@ -745,8 +745,9 @@ async function fetchEntsoe(){
   const now=new Date();
   const pad=n=>String(n).padStart(2,'0');
   const fmt=d=>`${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}${pad(d.getUTCHours())}00`;
-  const s=new Date(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate(),22,0,0));
-  const e=new Date(s.getTime()+25*3600000);
+  // 48h window from UTC 00:00 today — covers both CET (+1) and CEST (+2) midnight offsets
+  const s=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate(),0,0,0));
+  const e=new Date(s.getTime()+48*3600000);
   const params=new URLSearchParams({
     securityToken:C.entsoeToken,
     documentType:'A44',
@@ -1435,6 +1436,7 @@ async function teslaToken(){
 
 // ── Partner registration (one-time per region) ───────────
 async function teslaRegisterPartner(){
+  if(!C.teslaClientSecret) throw new Error('Client Secret fehlt — bitte in Einstellungen eintragen');
   // Step 1: get partner token via client_credentials
   const b1 = new URLSearchParams({
     grant_type:    'client_credentials',
@@ -1491,7 +1493,7 @@ async function teslaFetchSoC(){
     let r = await fetch(url, {headers:{Authorization:'Bearer '+token}});
 
     // Vehicle asleep → wake and retry once
-    if(r.status===408 || r.status===offline){
+    if(r.status===408 || r.status===0){
       updTeslaUI('busy',(T.vehicleName||'Tesla')+' — aufwecken…');
       await fetch(teslaFleetBase()+`/api/1/vehicles/${T.vehicleId}/wake_up`,
         {method:'POST', headers:{Authorization:'Bearer '+token}});
