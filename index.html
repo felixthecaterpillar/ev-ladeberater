@@ -1014,16 +1014,14 @@ function drawChart(prices, result, depStr, socStart, km){
   ln.setAttribute('stroke-width','1.5'); ln.setAttribute('stroke-linejoin','round'); svg.appendChild(ln);
 
   // ── SoC line ──
-  // Use sm (start-minute) based role lookup — more robust than index matching
-  const smRoleMap=new Map(result.slots.map(s=>[s.sm, s.role]));
+  // Use index-based lookup — mustSet/bonusSet contain original price-array indices
   const socPoints=[];
   let curSoc=socStart;
   let depDropped=false;
   prices.forEach((p,i)=>{
     const d=new Date(p.start_timestamp), sm=d.getHours()*60+d.getMinutes();
     if(sm<depMin2){
-      const role=smRoleMap.get(sm);
-      if(role==='must'||role==='bonus'){
+      if(mustSet.has(i)||bonusSet.has(i)){
         const deltaSoc=(pw*slotH/BAT)*100;
         const socEnd=Math.min(curSoc+deltaSoc, C.maxSoc);
         socPoints.push({x:xS(i), ys:ySoc(curSoc)});
@@ -1065,18 +1063,18 @@ function drawChart(prices, result, depStr, socStart, km){
       ll.setAttribute('stroke','#d29922');ll.setAttribute('stroke-width','1');ll.setAttribute('stroke-dasharray','3 3');
       svg.appendChild(ll);
       const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
-      lt.setAttribute('x',W-pR+3); lt.setAttribute('y',limitY+3);
+      lt.setAttribute('x',pL+4); lt.setAttribute('y',limitY-3);
       lt.setAttribute('text-anchor','start'); lt.setAttribute('fill','#d29922'); lt.setAttribute('font-size','8');
-      lt.textContent=`${euroPer100kmLimit}€/100km`; svg.appendChild(lt);
+      lt.textContent=`Limit ${euroPer100kmLimit}€/100km`; svg.appendChild(lt);
     } else {
       // Threshold outside visible range — show as annotation at top or bottom edge
       const atTop=limitY<pT;
       const edgeY=atTop?pT+12:pT+pH-4;
       const arrow=atTop?'▲':'▼';
       const lt=document.createElementNS('http://www.w3.org/2000/svg','text');
-      lt.setAttribute('x',W-pR+3); lt.setAttribute('y',edgeY);
+      lt.setAttribute('x',pL+4); lt.setAttribute('y',edgeY);
       lt.setAttribute('text-anchor','start'); lt.setAttribute('fill','#d29922'); lt.setAttribute('font-size','8');
-      lt.textContent=`${arrow}${euroPer100kmLimit}€/100km`; svg.appendChild(lt);
+      lt.textContent=`${arrow}Limit ${euroPer100kmLimit}€/100km`; svg.appendChild(lt);
     }
   }
 
@@ -1123,22 +1121,26 @@ function drawChart(prices, result, depStr, socStart, km){
   laxL.setAttribute('transform',`rotate(-90,4,${pT+pH/2})`);
   laxL.textContent='ct/kWh'; svg.appendChild(laxL);
 
-  // ── Right Y axis — €/100km ──
-  // €/100km = ct/kWh × C.con / 100
-  for(let i=0;i<=3;i++){
-    const ctKwh=mn+(rng/3)*i;
-    const euroPer100km=(ctKwh*C.con/100).toFixed(2);
+  // ── Right Y axis — SoC % ──
+  [0,20,50,80,100].forEach(pct=>{
+    const y=ySoc(pct);
+    // Gridline (subtle)
+    const gl=document.createElementNS('http://www.w3.org/2000/svg','line');
+    gl.setAttribute('x1',pL);gl.setAttribute('x2',W-pR);
+    gl.setAttribute('y1',y);gl.setAttribute('y2',y);
+    gl.setAttribute('stroke','rgba(63,185,80,0.08)');gl.setAttribute('stroke-width','1');
+    svg.appendChild(gl);
     const el=document.createElementNS('http://www.w3.org/2000/svg','text');
-    el.setAttribute('x',W-pR+4); el.setAttribute('y',yS(ctKwh)+3);
-    el.setAttribute('text-anchor','start'); el.setAttribute('fill','#d29922'); el.setAttribute('font-size','9');
-    el.textContent=euroPer100km; svg.appendChild(el);
-  }
+    el.setAttribute('x',W-pR+4); el.setAttribute('y',y+3);
+    el.setAttribute('text-anchor','start'); el.setAttribute('fill','#3fb950'); el.setAttribute('font-size','9');
+    el.textContent=pct+'%'; svg.appendChild(el);
+  });
   // Right axis label
   const laxR=document.createElementNS('http://www.w3.org/2000/svg','text');
   laxR.setAttribute('x',W-4); laxR.setAttribute('y',pT+pH/2);
-  laxR.setAttribute('text-anchor','middle'); laxR.setAttribute('fill','#d29922'); laxR.setAttribute('font-size','8');
+  laxR.setAttribute('text-anchor','middle'); laxR.setAttribute('fill','#3fb950'); laxR.setAttribute('font-size','8');
   laxR.setAttribute('transform',`rotate(90,${W-4},${pT+pH/2})`);
-  laxR.textContent='€/100km'; svg.appendChild(laxR);
+  laxR.textContent='SoC %'; svg.appendChild(laxR);
 
   // ── SoC labels on right (at start and end of SoC line) ──
   if(socPoints.length>0){
