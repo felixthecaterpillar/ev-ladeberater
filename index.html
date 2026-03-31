@@ -1228,12 +1228,8 @@ function groupConsecutive(slots){
 }
 
 // ── Tesla Integration ────────────────────────────────────
-const TESLA_AUTH = 'https://auth.tesla.com/oauth2/v3';
-const TESLA_FLEET = {
-  eu: 'https://fleet-api.prd.eu.vn.cloud.tesla.com',
-  na: 'https://fleet-api.prd.na.vn.cloud.tesla.com',
-  ap: 'https://fleet-api.prd.na.vn.cloud.tesla.com'
-};
+const TESLA_AUTH  = 'https://auth.tesla.com/oauth2/v3';   // direct — only used for browser redirect
+const TESLA_PROXY = 'https://ev-ladeberater-helloworld.fr-signup.workers.dev'; // CORS proxy for fetch calls
 
 let T = {
   connected: false,
@@ -1241,7 +1237,7 @@ let T = {
   vehicleId: null, vehicleName: null
 };
 
-function teslaFleetBase(){ return TESLA_FLEET[C.teslaRegion||'eu']; }
+function teslaFleetBase(){ return TESLA_PROXY; }
 
 function teslaRedirectURI(){
   const u = window.location.href.replace(/\?.*$/,'').replace(/\/[^/]*$/,'/');
@@ -1322,7 +1318,7 @@ async function teslaHandleCallback(){
     });
     if(C.teslaClientSecret) body.set('client_secret', C.teslaClientSecret);
 
-    const r   = await fetch(TESLA_AUTH+'/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+    const r   = await fetch(TESLA_PROXY+'/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
     const tok = await r.json();
     if(!tok.access_token) throw new Error(tok.error_description||'Token-Fehler');
 
