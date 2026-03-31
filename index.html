@@ -1326,6 +1326,8 @@ async function teslaHandleCallback(){
     T.refreshToken = tok.refresh_token;
     T.tokenExpiry  = Date.now() + (tok.expires_in - 60)*1000;
 
+    updTeslaUI('busy','Region wird registriert…');
+    await teslaRegisterPartner();
     updTeslaUI('busy','Fahrzeug wird abgerufen…');
     await teslaFetchVehicleList();
     T.connected = true;
@@ -1358,6 +1360,21 @@ async function teslaToken(){
   T.tokenExpiry  = Date.now() + (tok.expires_in - 60)*1000;
   teslaSave();
   return T.accessToken;
+}
+
+// ── Partner registration (one-time per region) ───────────
+async function teslaRegisterPartner(){
+  const token = await teslaToken();
+  const domain = window.location.hostname; // felixthecaterpillar.github.io
+  const r = await fetch(teslaFleetBase()+'/api/1/partner_accounts', {
+    method: 'POST',
+    headers: {Authorization:'Bearer '+token, 'Content-Type':'application/json'},
+    body: JSON.stringify({domain})
+  });
+  const d = await r.json();
+  // 409 = already registered — that's fine
+  if(!r.ok && r.status !== 409)
+    throw new Error('Partner-Registrierung fehlgeschlagen: '+(d.error||r.status));
 }
 
 // ── Vehicle list ─────────────────────────────────────────
