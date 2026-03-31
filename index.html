@@ -1319,8 +1319,9 @@ async function teslaHandleCallback(){
     if(C.teslaClientSecret) body.set('client_secret', C.teslaClientSecret);
 
     const r   = await fetch(TESLA_PROXY+'/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
-    const tok = await r.json();
-    if(!tok.access_token) throw new Error(tok.error_description||'Token-Fehler');
+    const txt = await r.text();
+    let tok; try{ tok=JSON.parse(txt); }catch(e){ throw new Error('Token-Antwort: '+txt.slice(0,300)); }
+    if(!tok.access_token) throw new Error(tok.error_description||tok.error||'Token-Fehler (HTTP '+r.status+')');
 
     T.accessToken  = tok.access_token;
     T.refreshToken = tok.refresh_token;
@@ -1351,8 +1352,9 @@ async function teslaToken(){
   });
   if(C.teslaClientSecret) body.set('client_secret', C.teslaClientSecret);
 
-  const r   = await fetch(TESLA_AUTH+'/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
-  const tok = await r.json();
+  const r   = await fetch(TESLA_PROXY+'/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+  const txt = await r.text();
+  let tok; try{ tok=JSON.parse(txt); }catch(e){ throw new Error('Refresh-Antwort: '+txt.slice(0,300)); }
   if(!tok.access_token) throw new Error('Token-Refresh fehlgeschlagen — bitte neu verbinden');
 
   T.accessToken  = tok.access_token;
