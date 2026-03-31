@@ -1366,17 +1366,30 @@ async function teslaToken(){
 
 // ── Partner registration (one-time per region) ───────────
 async function teslaRegisterPartner(){
-  const token = await teslaToken();
-  const domain = window.location.hostname; // felixthecaterpillar.github.io
-  const r = await fetch(teslaFleetBase()+'/api/1/partner_accounts', {
-    method: 'POST',
-    headers: {Authorization:'Bearer '+token, 'Content-Type':'application/json'},
-    body: JSON.stringify({domain})
+  // Step 1: get partner token via client_credentials
+  const b1 = new URLSearchParams({
+    grant_type:    'client_credentials',
+    client_id:     C.teslaClientId,
+    client_secret: C.teslaClientSecret,
+    scope:         'openid vehicle_device_data vehicle_cmds',
+    audience:      'https://fleet-api.prd.eu.vn.cloud.tesla.com'
   });
-  const d = await r.json();
-  // 409 = already registered — that's fine
-  if(!r.ok && r.status !== 409)
-    throw new Error('Partner-Registrierung fehlgeschlagen: '+(d.error||r.status));
+  const r1  = await fetch(TESLA_PROXY+'/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:b1});
+  const t1  = await r1.text();
+  let ptok; try{ ptok=JSON.parse(t1); }catch(e){ throw new Error('Partner-Token-Antwort: '+t1.slice(0,200)); }
+  if(!ptok.access_token) throw new Error('Partner-Token: '+(ptok.error_description||ptok.error||r1.status));
+
+  // Step 2: register domain in EU region
+  const r2 = await fetch(teslaFleetBase()+'/api/1/partner_accounts', {
+    method: 'POST',
+    headers: {Authorization:'Bearer '+ptok.access_token, 'Content-Type':'application/json'},
+    body: JSON.stringify({domain: window.location.hostname})
+  });
+  const t2 = await r2.text();
+  let d; try{ d=JSON.parse(t2); }catch(e){ throw new Error('Reg-Antwort: '+t2.slice(0,200)); }
+  // 409 = already registered — fine
+  if(!r2.ok && r2.status !== 409)
+    throw new Error('Partner-Registrierung fehlgeschlagen: '+(d.error||r2.status));
 }
 
 // ── Vehicle list ─────────────────────────────────────────
