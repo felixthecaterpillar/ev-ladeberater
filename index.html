@@ -1365,7 +1365,8 @@ async function teslaFetchVehicleList(){
   const token = await teslaToken();
   const r = await fetch(teslaFleetBase()+'/api/1/vehicles', {headers:{Authorization:'Bearer '+token}});
   const d = await r.json();
-  if(!d.response?.length) throw new Error('Kein Fahrzeug im Konto gefunden');
+  if(d.error) throw new Error('API: '+d.error+(d.error_description?' — '+d.error_description:''));
+  if(!d.response?.length) throw new Error('Kein Fahrzeug gefunden (count='+d.count+' HTTP '+r.status+')');
   const v = d.response[0];
   T.vehicleId   = v.id_s || String(v.id);
   T.vehicleName = v.display_name || 'Tesla';
