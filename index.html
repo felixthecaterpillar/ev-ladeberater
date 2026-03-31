@@ -997,18 +997,17 @@ function drawChart(prices, result, depStr, socStart, km){
   ln.setAttribute('stroke-width','1.5'); ln.setAttribute('stroke-linejoin','round'); svg.appendChild(ln);
 
   // ── SoC line ──
-  // Build SoC state per slot: starts at socStart, rises when charging, static otherwise
-  // We use slot index as x-position
+  // Use sm (start-minute) based role lookup — more robust than index matching
+  const smRoleMap=new Map(result.slots.map(s=>[s.sm, s.role]));
   const socPoints=[];
   let curSoc=socStart;
   let depDropped=false;
   prices.forEach((p,i)=>{
     const d=new Date(p.start_timestamp), sm=d.getHours()*60+d.getMinutes();
     if(sm<depMin2){
-      // Vor Abfahrt: Laden wenn Pflicht- oder Bonus-Slot
-      if(mustSet.has(i)||bonusSet.has(i)){
-        const kwhThisSlot=pw*slotH;
-        const deltaSoc=(kwhThisSlot/BAT)*100;
+      const role=smRoleMap.get(sm);
+      if(role==='must'||role==='bonus'){
+        const deltaSoc=(pw*slotH/BAT)*100;
         const socEnd=Math.min(curSoc+deltaSoc, C.maxSoc);
         socPoints.push({x:xS(i), ys:ySoc(curSoc)});
         socPoints.push({x:xS(Math.min(i+1,prices.length-1)), ys:ySoc(socEnd)});
@@ -1016,10 +1015,9 @@ function drawChart(prices, result, depStr, socStart, km){
         return;
       }
     } else if(!depDropped){
-      // Erster Slot ab Abfahrtszeit: SoC-Drop um Fahrtverbrauch
       depDropped=true;
-      const tripKwh=km*C.con/100;
-      const socAfter=Math.max(C.minSoc||0, curSoc-(tripKwh/BAT)*100);
+      const tripDrop=(km*C.con/100/BAT)*100;
+      const socAfter=Math.max(C.minSoc, curSoc-tripDrop);
       socPoints.push({x:xS(i), ys:ySoc(curSoc)});
       socPoints.push({x:xS(i), ys:ySoc(socAfter)});
       curSoc=socAfter;
@@ -1127,7 +1125,7 @@ function drawChart(prices, result, depStr, socStart, km){
 
   // ── SoC labels on right (at start and end of SoC line) ──
   if(socPoints.length>0){
-    const socEndVal=Math.min(soc, C.maxSoc);
+    const socEndVal=Math.round(curSoc);
     // Start SoC dot + label
     const sc=document.createElementNS('http://www.w3.org/2000/svg','circle');
     sc.setAttribute('cx',socPoints[0].x); sc.setAttribute('cy',socPoints[0].ys);
