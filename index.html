@@ -725,7 +725,9 @@ function parseEntsoeXml(xml){
     const startStr=period.querySelector('start')?.textContent;
     const resStr=period.querySelector('resolution')?.textContent||'PT60M';
     if(!startStr) return;
-    const startMs=new Date(startStr).getTime();
+    // Safari requires seconds in ISO 8601 — normalize "2026-04-01T22:00Z" → "2026-04-01T22:00:00Z"
+    const startMs=new Date(startStr.replace(/T(\d{2}:\d{2})Z$/,'T$1:00Z')).getTime();
+    if(isNaN(startMs)){console.warn('ENTSO-E: ungültiger Timestamp',startStr);return;}
     const mins=resStr==='PT15M'?15:60;
     period.querySelectorAll('Point').forEach(p=>{
       const pos=parseInt(p.querySelector('position')?.textContent||'1')-1;
@@ -1217,7 +1219,7 @@ async function analyze(){
   }
 
   if(!result.mustSlots.length && mustCharge>0){
-    recs.innerHTML=`<div class="msg warn-msg">⚠ Keine Ladefenster vor ${dep}. Früheren Abfahrtszeitpunkt wählen.</div>`;
+    recs.innerHTML=`<div class="msg warn-msg">⚠ Keine Ladefenster vor ${dep} — ${prices.length} Preis-Slots geladen. Abfahrtszeit später setzen oder Stecker früher einstecken.</div>`;
     document.getElementById('results').classList.remove('hidden');
     document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
     return;
