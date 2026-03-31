@@ -1000,7 +1000,8 @@ function drawChart(prices, result, depStr, socStart, km){
   // Build SoC state per slot: starts at socStart, rises when charging, static otherwise
   // We use slot index as x-position
   const socPoints=[];
-  let soc=socStart;
+  let curSoc=socStart;
+  let depDropped=false;
   prices.forEach((p,i)=>{
     const d=new Date(p.start_timestamp), sm=d.getHours()*60+d.getMinutes();
     if(sm<depMin2){
@@ -1008,22 +1009,22 @@ function drawChart(prices, result, depStr, socStart, km){
       if(mustSet.has(i)||bonusSet.has(i)){
         const kwhThisSlot=pw*slotH;
         const deltaSoc=(kwhThisSlot/BAT)*100;
-        const socEnd=Math.min(soc+deltaSoc, C.maxSoc);
-        socPoints.push({x:xS(i), ys:ySoc(soc)});
+        const socEnd=Math.min(curSoc+deltaSoc, C.maxSoc);
+        socPoints.push({x:xS(i), ys:ySoc(curSoc)});
         socPoints.push({x:xS(Math.min(i+1,prices.length-1)), ys:ySoc(socEnd)});
-        soc=socEnd;
+        curSoc=socEnd;
         return;
       }
-    } else if(sm===depMin2){
-      // Abfahrt: SoC fällt um Fahrtverbrauch
-      const tripKwh=getKm()*C.con/100;
-      const socAfter=Math.max(0, soc-(tripKwh/BAT)*100);
-      socPoints.push({x:xS(i), ys:ySoc(soc)});
-      socPoints.push({x:xS(Math.min(i+1,prices.length-1)), ys:ySoc(socAfter)});
-      soc=socAfter;
-      return;
+    } else if(!depDropped){
+      // Erster Slot ab Abfahrtszeit: SoC-Drop um Fahrtverbrauch
+      depDropped=true;
+      const tripKwh=km*C.con/100;
+      const socAfter=Math.max(C.minSoc||0, curSoc-(tripKwh/BAT)*100);
+      socPoints.push({x:xS(i), ys:ySoc(curSoc)});
+      socPoints.push({x:xS(i), ys:ySoc(socAfter)});
+      curSoc=socAfter;
     }
-    socPoints.push({x:xS(i), ys:ySoc(soc)});
+    socPoints.push({x:xS(i), ys:ySoc(curSoc)});
   });
 
   if(socPoints.length>1){
